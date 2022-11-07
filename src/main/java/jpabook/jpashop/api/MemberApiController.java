@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -14,6 +16,7 @@ public class MemberApiController {
 
     private final MemberService memberService;
 
+    //============================등록============================//
     /**
      * 등록 V1: 요청 값으로 Member 엔티티를 직접 받는다.
      * 문제점: 엔티티에 프레젠테이션 계층을 위한 로직이 추가된다, 엔티티가 변경되면 API 스펙이 변한다.
@@ -31,21 +34,11 @@ public class MemberApiController {
      */
     @PostMapping("/api/v2/members")
     public CreateMemberResponse saveMemberV2(@RequestBody @Valid CreateMemberRequest request) {
+
         Member member = new Member();
         member.setName(request.getName());
         Long id = memberService.join(member);
         return new CreateMemberResponse(id);
-    }
-
-    /**
-     * 수정 V2
-     */
-    @PutMapping("/api/v2/members/{id}")
-    public UpdateMemberResponse updateMemberV2(@PathVariable("id") Long id,
-                                               @RequestBody @Valid UpdateMemberRequest request) {
-        memberService.update(id, request.getName());
-        Member findMember = memberService.findOne(id);
-        return new UpdateMemberResponse(findMember.getId(), findMember.getName());
     }
 
     @Data
@@ -62,6 +55,18 @@ public class MemberApiController {
         }
     }
 
+    //============================수정============================//
+    /**
+     * 수정 V2
+     */
+    @PutMapping("/api/v2/members/{id}")
+    public UpdateMemberResponse updateMemberV2(@PathVariable("id") Long id,
+                                               @RequestBody @Valid UpdateMemberRequest request) {
+        memberService.update(id, request.getName());
+        Member findMember = memberService.findOne(id);
+        return new UpdateMemberResponse(findMember.getId(), findMember.getName());
+    }
+
     @Data
     static class UpdateMemberRequest {
         private String name;
@@ -72,5 +77,41 @@ public class MemberApiController {
     static class UpdateMemberResponse {
         private Long id;
         private String name;
+    }
+
+    //============================조회============================//
+    /**
+     * 조회 V1: 응답 값으로 Member 엔티티를 직접 노출한다.
+     */
+    @GetMapping("/api/v1/members")
+    public List<Member> membersV1() {
+        return memberService.findMembers();
+    }
+
+    /**
+     * 조회 V2: 응답 값으로 엔티티가 아닌 별도의 DTO를 반환한다.
+     */
+    @GetMapping("/api/v2/members")
+    public Result memberV2() {
+        List<Member> findMembers = memberService.findMembers();
+        //엔티티 -> DTO 변환
+        List<MemberDto> collect = findMembers.stream()
+                .map(m -> new MemberDto(m.getName()))
+                .collect(Collectors.toList());
+
+        return new Result(collect, collect.size());
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class MemberDto{
+        private String name;
+    }
+
+    @Data
+    @AllArgsConstructor
+    static class Result <T>{
+        private T data;
+        private int count;
     }
 }
